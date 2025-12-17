@@ -39,8 +39,9 @@ venv.bak/
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# Streamlit
-.streamlit/
+# Streamlit (garder config.toml mais ignorer les secrets)
+.streamlit/secrets.toml
+.streamlit/credentials.toml
 
 # Environment variables
 .env
