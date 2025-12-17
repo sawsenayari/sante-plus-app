@@ -78,7 +78,6 @@ st.markdown("""
 # =========================
 # Chargement de tous les modèles
 # =========================
-@st.cache_resource
 def load_all_models():
     """Charge tous les modèles et le scaler"""
     try:
@@ -259,11 +258,10 @@ def load_all_models():
             "SVM": svm_model if 'svm_model' in locals() else None
         }
 
-models = load_all_models()
-scaler = models.get("scaler")
-if scaler is None:
-    st.error("❌ Impossible de charger le scaler. L'application ne peut pas fonctionner.")
-    st.stop()
+# Ne pas charger les modèles au démarrage pour éviter les segfaults
+# Les modèles seront chargés seulement quand l'utilisateur soumet le formulaire
+models = None
+scaler = None
 
 # =========================
 # Formulaire d'entrée
@@ -325,6 +323,14 @@ with st.form("comparison_form"):
 # Prédictions avec tous les modèles
 # =========================
 if submitted:
+    # Charger les modèles seulement maintenant (lazy loading)
+    if models is None:
+        models = load_all_models()
+        scaler = models.get("scaler")
+        if scaler is None:
+            st.error("❌ Impossible de charger le scaler. L'application ne peut pas fonctionner.")
+            st.stop()
+    
     # Construction du tableau d'entrée
     X_22 = np.array([[
         radius_mean, texture_mean, area_mean, smoothness_mean,

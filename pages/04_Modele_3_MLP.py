@@ -56,13 +56,20 @@ st.markdown("""
 # =========================
 # Chargement modèle + scaler
 # =========================
-@st.cache_resource
-def load_mlp():
+# Ne pas charger le modèle au démarrage pour éviter les segfaults
+# Le modèle sera chargé seulement quand l'utilisateur soumet le formulaire
+mlp_model = None
+scaler = None
+
+def load_mlp_lazy():
+    """Charge le modèle MLP seulement quand nécessaire"""
+    global mlp_model, scaler
+    if mlp_model is not None and scaler is not None:
+        return mlp_model, scaler
+    
     try:
-        # S'assurer que TensorFlow est importé avant le chargement
+        # Importer TensorFlow seulement ici, quand nécessaire
         import tensorflow as tf
-        
-        # Désactiver les warnings
         tf.get_logger().setLevel('ERROR')
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
         
@@ -89,7 +96,6 @@ def load_mlp():
         # Créer keras.src.models.sequential - doit être un module, pas une classe
         if 'keras.src.models.sequential' not in sys.modules:
             sequential_module = types.ModuleType('keras.src.models.sequential')
-            # La classe Sequential doit être accessible depuis le module
             sequential_module.Sequential = tf.keras.Sequential
             sys.modules['keras.src.models.sequential'] = sequential_module
         
@@ -112,21 +118,15 @@ def load_mlp():
             sys.modules['keras.src.saving.keras_saveable'] = keras_saveable_module
         
         # Charger le modèle
-        model = joblib.load("models/MLP.pkl")
+        mlp_model = joblib.load("models/MLP.pkl")
         scaler = joblib.load("models/scaler.pkl")
-        return model, scaler
+        return mlp_model, scaler
     except Exception as e:
         st.error(f"❌ Erreur lors du chargement du modèle MLP : {e}")
         st.warning("⚠️ Le modèle MLP nécessite TensorFlow/Keras. Vérifiez que les dépendances sont correctement installées.")
         import traceback
         st.code(traceback.format_exc())
         return None, None
-
-mlp_model, scaler = load_mlp()
-
-if mlp_model is None or scaler is None:
-    st.error("❌ Impossible de charger le modèle MLP. L'application ne peut pas fonctionner sur cette page.")
-    st.stop()
 
 # =========================
 # Formulaire des inputs
@@ -188,6 +188,13 @@ with st.form("mlp_form"):
 # Prédiction
 # =========================
 if submit:
+    # Charger le modèle seulement maintenant (lazy loading)
+    mlp_model, scaler = load_mlp_lazy()
+    
+    if mlp_model is None or scaler is None:
+        st.error("❌ Impossible de charger le modèle MLP. Veuillez réessayer.")
+        st.stop()
+    
     X = np.array([[
         radius_mean, texture_mean, area_mean, smoothness_mean,
         compactness_mean, concavity_mean, concave_points_mean,
