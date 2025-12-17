@@ -8,11 +8,6 @@ enableXsrfProtection = false
 # Optimiser le rerun
 fastReruns = true
 
-[client]
-# Cache plus agressif
-caching = true
-displayEnabled = true
-
 [theme]
 primaryColor = "#1f77b4"
 backgroundColor = "#ffffff"

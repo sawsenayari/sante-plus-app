@@ -2,6 +2,10 @@ import streamlit as st
 import numpy as np
 import joblib
 import os
+import warnings
+
+# Supprimer les warnings sklearn sur les feature names
+warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
 
 # Désactiver les warnings TensorFlow
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'

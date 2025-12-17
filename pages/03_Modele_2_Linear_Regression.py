@@ -1,6 +1,10 @@
 import streamlit as st
 import numpy as np
 import joblib
+import warnings
+
+# Supprimer les warnings sklearn sur les feature names
+warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
 
 # Configuration de la page
 st.set_page_config(

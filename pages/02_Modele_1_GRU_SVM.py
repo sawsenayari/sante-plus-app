@@ -2,11 +2,15 @@ import streamlit as st
 import numpy as np
 import joblib
 import os
+import warnings
 
 # Désactiver les warnings TensorFlow
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 # Ne pas importer TensorFlow ici pour éviter les segfaults
 # Il sera importé dans la fonction load_gru_svm() si nécessaire
+
+# Supprimer les warnings sklearn sur les feature names
+warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
 
 # Configuration de la page
 st.set_page_config(

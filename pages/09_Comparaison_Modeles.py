@@ -5,9 +5,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+import warnings
 
 # Désactiver les warnings TensorFlow
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+# Supprimer les warnings sklearn sur les feature names
+warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
 # Ne pas importer TensorFlow ici pour éviter les segfaults
 # Il sera importé dans la fonction load_all_models() si nécessaire
 
