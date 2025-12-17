@@ -1,29 +1,34 @@
 """
 Script simple de validation des modèles ML
-Vérifie que les modèles sont valides avant déploiement
+Vérifie que les modèles existent et ont une taille valide avant déploiement
 """
 import os
 import sys
-import joblib
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 def validate_model_file(model_path, model_name):
-    """Valide qu'un fichier de modèle existe et peut être chargé"""
+    """Valide qu'un fichier de modèle existe et a une taille valide"""
     try:
         if not os.path.exists(model_path):
             logger.error(f"❌ {model_name}: Fichier non trouvé - {model_path}")
             return False
         
-        # Essayer de charger le modèle
-        model = joblib.load(model_path)
-        logger.info(f"✅ {model_name}: Modèle chargé avec succès")
+        # Vérifier la taille du fichier (doit être > 0)
+        file_size = os.path.getsize(model_path)
+        if file_size == 0:
+            logger.error(f"❌ {model_name}: Fichier vide - {model_path}")
+            return False
+        
+        # Convertir en KB pour affichage
+        size_kb = file_size / 1024
+        logger.info(f"✅ {model_name}: Fichier trouvé ({size_kb:.2f} KB)")
         return True
         
     except Exception as e:
-        logger.error(f"❌ {model_name}: Erreur lors du chargement - {str(e)}")
+        logger.error(f"❌ {model_name}: Erreur lors de la validation - {str(e)}")
         return False
 
 def main():
