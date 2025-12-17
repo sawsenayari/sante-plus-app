@@ -5,22 +5,13 @@ import os
 # Désactiver les warnings TensorFlow et configurer l'environnement
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Supprime les warnings TensorFlow
 os.environ['KERAS_BACKEND'] = 'tensorflow'
-# Désactiver les optimisations qui peuvent causer des segfaults
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-os.environ['TF_DISABLE_MKL'] = '1'
 
 # Importer TensorFlow/Keras silencieusement
 try:
     import tensorflow as tf
     tf.get_logger().setLevel('ERROR')
-    # Désactiver les optimisations CPU qui peuvent causer des segfaults
-    tf.config.threading.set_inter_op_parallelism_threads(1)
-    tf.config.threading.set_intra_op_parallelism_threads(1)
     import keras
 except ImportError:
-    pass
-except Exception:
-    # Ignorer les erreurs d'initialisation TensorFlow
     pass
 
 # =========================
