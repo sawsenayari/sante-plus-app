@@ -64,11 +64,51 @@ st.markdown("""
 # =========================
 @st.cache_resource
 def load_softmax():
-    model = joblib.load("models/softmax.pkl")
-    scaler = joblib.load("models/scaler.pkl")
-    return model, scaler
+    try:
+        # S'assurer que TensorFlow est importé avant le chargement
+        import tensorflow as tf
+        
+        # Désactiver les warnings
+        tf.get_logger().setLevel('ERROR')
+        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+        
+        # Créer un module de compatibilité pour keras.src.saving.keras_saveable
+        import sys
+        import types
+        
+        # Créer un module factice pour keras.src.saving.keras_saveable
+        if 'keras.src.saving.keras_saveable' not in sys.modules:
+            keras_saveable_module = types.ModuleType('keras.src.saving.keras_saveable')
+            # Utiliser la classe de base de tf.keras.saving si elle existe
+            try:
+                # Essayer d'importer depuis tf.keras
+                from tensorflow.python.keras.saving import saving_utils
+                keras_saveable_module.KerasSaveable = saving_utils.KerasSaveable if hasattr(saving_utils, 'KerasSaveable') else object
+            except:
+                # Fallback : utiliser object comme classe de base
+                keras_saveable_module.KerasSaveable = object
+            sys.modules['keras.src.saving.keras_saveable'] = keras_saveable_module
+        
+        # Mapper keras vers tf.keras
+        if 'keras' not in sys.modules:
+            sys.modules['keras'] = tf.keras
+        
+        # Charger le modèle
+        model = joblib.load("models/softmax.pkl")
+        scaler = joblib.load("models/scaler.pkl")
+        return model, scaler
+    except Exception as e:
+        st.error(f"❌ Erreur lors du chargement du modèle Softmax : {e}")
+        st.warning("⚠️ Le modèle Softmax nécessite TensorFlow/Keras. Vérifiez que les dépendances sont correctement installées.")
+        import traceback
+        st.code(traceback.format_exc())
+        return None, None
 
 softmax_model, scaler = load_softmax()
+
+if softmax_model is None or scaler is None:
+    st.error("❌ Impossible de charger le modèle Softmax. L'application ne peut pas fonctionner sur cette page.")
+    st.stop()
 
 # =========================
 # Formulaire des inputs

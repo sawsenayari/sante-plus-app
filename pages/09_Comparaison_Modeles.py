@@ -114,6 +114,24 @@ def load_all_models():
         
         # MLP (nécessite Keras)
         try:
+            import sys
+            import types
+            import tensorflow as tf
+            
+            # Créer un module de compatibilité pour keras.src.saving.keras_saveable
+            if 'keras.src.saving.keras_saveable' not in sys.modules:
+                keras_saveable_module = types.ModuleType('keras.src.saving.keras_saveable')
+                try:
+                    from tensorflow.python.keras.saving import saving_utils
+                    keras_saveable_module.KerasSaveable = saving_utils.KerasSaveable if hasattr(saving_utils, 'KerasSaveable') else object
+                except:
+                    keras_saveable_module.KerasSaveable = object
+                sys.modules['keras.src.saving.keras_saveable'] = keras_saveable_module
+            
+            # Mapper keras vers tf.keras
+            if 'keras' not in sys.modules:
+                sys.modules['keras'] = tf.keras
+            
             mlp_model = joblib.load("models/MLP.pkl")
         except Exception as e:
             st.warning(f"Erreur lors du chargement de MLP : {e}")
@@ -121,6 +139,24 @@ def load_all_models():
         
         # Softmax
         try:
+            import sys
+            import types
+            import tensorflow as tf
+            
+            # Créer un module de compatibilité pour keras.src.saving.keras_saveable
+            if 'keras.src.saving.keras_saveable' not in sys.modules:
+                keras_saveable_module = types.ModuleType('keras.src.saving.keras_saveable')
+                try:
+                    from tensorflow.python.keras.saving import saving_utils
+                    keras_saveable_module.KerasSaveable = saving_utils.KerasSaveable if hasattr(saving_utils, 'KerasSaveable') else object
+                except:
+                    keras_saveable_module.KerasSaveable = object
+                sys.modules['keras.src.saving.keras_saveable'] = keras_saveable_module
+            
+            # Mapper keras vers tf.keras
+            if 'keras' not in sys.modules:
+                sys.modules['keras'] = tf.keras
+            
             softmax_model = joblib.load("models/softmax.pkl")
         except Exception as e:
             st.warning(f"Erreur lors du chargement de Softmax : {e}")
