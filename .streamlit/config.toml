@@ -1,13 +1,21 @@
 [server]
+# Réduire le timeout pour éviter les attentes longues
 headless = true
-port = 8501
 enableCORS = false
 enableXsrfProtection = false
+
+[runner]
+# Optimiser le rerun
+fastReruns = true
+
+[client]
+# Cache plus agressif
+caching = true
+displayEnabled = true
 
 [theme]
 primaryColor = "#1f77b4"
 backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f8f9fa"
-textColor = "#212529"
+secondaryBackgroundColor = "#f0f2f6"
+textColor = "#262730"
 font = "sans serif"
-

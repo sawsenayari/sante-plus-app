@@ -59,15 +59,19 @@ st.markdown("""
 @st.cache_resource
 def load_softmax():
     try:
-        # S'assurer que TensorFlow est importé avant le chargement
-        import tensorflow as tf
-        
-        # Désactiver les warnings
-        tf.get_logger().setLevel('ERROR')
-        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-        
-        # Créer un système de compatibilité simple pour mapper keras.src.* vers tf.keras.*
+        # Importer TensorFlow de manière sécurisée
         import sys
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from utils.tf_safe_loader import safe_import_tensorflow, setup_keras_compatibility
+        
+        tf = safe_import_tensorflow()
+        if tf is None:
+            raise ImportError("TensorFlow n'a pas pu être chargé")
+        
+        # Configurer la compatibilité Keras
+        if not setup_keras_compatibility(tf):
+            raise RuntimeError("Impossible de configurer la compatibilité Keras")
+        
         import types
         
         # Mapper keras vers tf.keras

@@ -8,6 +8,19 @@ st.set_page_config(
     layout="wide"
 )
 
+# Message d'avertissement pour les erreurs 502 (plan gratuit Render)
+if 'show_502_warning' not in st.session_state:
+    st.session_state.show_502_warning = True
+
+if st.session_state.show_502_warning:
+    st.info("""
+    💡 **Note** : Si vous voyez une erreur 502, attendez 30-60 secondes et rafraîchissez la page. 
+    Sur le plan gratuit, l'app se met en veille après 15 minutes d'inactivité.
+    """)
+    if st.button("Ne plus afficher ce message"):
+        st.session_state.show_502_warning = False
+        st.rerun()
+
 # Chargement du CSS
 def load_css():
     try:

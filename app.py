@@ -18,6 +18,19 @@ st.set_page_config(
 )
 
 # =========================
+# Gestion de l'état de chargement
+# =========================
+if 'app_ready' not in st.session_state:
+    st.session_state.app_ready = False
+
+# Afficher un message si l'app est en train de démarrer (première visite)
+if not st.session_state.app_ready:
+    with st.spinner("🔄 Chargement de l'application..."):
+        import time
+        time.sleep(0.3)  # Petit délai pour montrer le spinner
+    st.session_state.app_ready = True
+
+# =========================
 # Chargement du CSS personnalisé
 # =========================
 def load_css():
