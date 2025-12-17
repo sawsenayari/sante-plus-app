@@ -2,17 +2,10 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 import os
 
-# Désactiver les warnings TensorFlow et configurer l'environnement
+# Désactiver les warnings TensorFlow
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Supprime les warnings TensorFlow
-os.environ['KERAS_BACKEND'] = 'tensorflow'
-
-# Importer TensorFlow/Keras silencieusement
-try:
-    import tensorflow as tf
-    tf.get_logger().setLevel('ERROR')
-    import keras
-except ImportError:
-    pass
+# Ne pas importer TensorFlow ici pour éviter les segfaults au démarrage
+# Les pages individuelles importeront TensorFlow si nécessaire
 
 # =========================
 # Configuration de la page
