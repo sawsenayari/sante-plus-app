@@ -5,14 +5,8 @@ import os
 
 # Désactiver les warnings TensorFlow
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
-# Importer Keras/TensorFlow avant de charger les modèles
-try:
-    import tensorflow as tf
-    tf.get_logger().setLevel('ERROR')
-    import keras
-except ImportError:
-    pass
+# Ne pas importer TensorFlow ici pour éviter les segfaults
+# Il sera importé dans la fonction load_gru_svm() si nécessaire
 
 # Configuration de la page
 st.set_page_config(
@@ -65,6 +59,17 @@ st.markdown("""
 # =========================
 @st.cache_resource
 def load_gru_svm():
+    # Importer TensorFlow seulement ici, quand nécessaire
+    try:
+        import tensorflow as tf
+        tf.get_logger().setLevel('ERROR')
+        import keras
+    except ImportError:
+        pass
+    except Exception:
+        # Ignorer les erreurs d'initialisation TensorFlow
+        pass
+    
     data = joblib.load("models/gru_svm.pkl")   # dict
     scaler = joblib.load("models/scaler.pkl")
     return data, scaler

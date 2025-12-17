@@ -5,14 +5,8 @@ import os
 
 # Désactiver les warnings TensorFlow
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
-# Importer Keras/TensorFlow avant de charger les modèles
-try:
-    import tensorflow as tf
-    tf.get_logger().setLevel('ERROR')
-    import keras
-except ImportError:
-    pass
+# Ne pas importer TensorFlow ici pour éviter les segfaults
+# Il sera importé dans la fonction load_mlp() si nécessaire
 
 # Configuration de la page
 st.set_page_config(
