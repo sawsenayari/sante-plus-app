@@ -13,13 +13,40 @@ if 'show_502_warning' not in st.session_state:
     st.session_state.show_502_warning = True
 
 if st.session_state.show_502_warning:
-    st.info("""
-    💡 **Note** : Si vous voyez une erreur 502, attendez 30-60 secondes et rafraîchissez la page. 
-    Sur le plan gratuit, l'app se met en veille après 15 minutes d'inactivité.
+    st.warning("""
+    ⚠️ **Erreur 502 ?** 
+    
+    Sur le plan gratuit de Render, l'application se met en veille après 15 minutes d'inactivité.
+    
+    **Solution immédiate :**
+    1. Attendez 30-60 secondes
+    2. Rafraîchissez la page (F5 ou Ctrl+R)
+    3. L'application redémarrera automatiquement
+    
+    **Solution définitive :** Utilisez un service de keep-alive gratuit comme UptimeRobot pour empêcher la mise en veille.
     """)
-    if st.button("Ne plus afficher ce message"):
-        st.session_state.show_502_warning = False
-        st.rerun()
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✅ Ne plus afficher"):
+            st.session_state.show_502_warning = False
+            st.rerun()
+    with col2:
+        if st.button("📖 Guide complet"):
+            st.info("""
+            **Guide pour éviter les erreurs 502 :**
+            
+            1. **UptimeRobot (Gratuit)** : https://uptimerobot.com
+               - Créez un compte gratuit
+               - Ajoutez un monitor HTTP(s)
+               - URL : Votre URL Render
+               - Interval : 5 minutes
+               - Cela ping votre app toutes les 5 minutes
+            
+            2. **Alternative : Render Paid Plan**
+               - $7/mois pour le plan Starter
+               - L'app reste toujours active
+               - Pas de délai de démarrage
+            """)
 
 # Chargement du CSS
 def load_css():
