@@ -50,13 +50,87 @@ st.markdown("""
 # =========================
 # Chargement modèle + scaler
 # =========================
+# Classe wrapper pour le modèle SVM personnalisé
+class CustomSVMModel:
+    """Wrapper pour un modèle SVM personnalisé avec poids w et biais b"""
+    def __init__(self, w, b):
+        self.w = np.array(w)
+        self.b = float(b)
+    
+    def predict(self, X):
+        """Prédiction binaire : 0 ou 1"""
+        # Calcul : sign(w^T * X + b)
+        scores = np.dot(X, self.w) + self.b
+        return (scores >= 0).astype(int)
+    
+    def predict_proba(self, X):
+        """Probabilités : utilise une sigmoïde pour convertir les scores en probabilités"""
+        scores = np.dot(X, self.w) + self.b
+        # Utiliser une sigmoïde pour convertir en probabilités
+        # prob = 1 / (1 + exp(-score))
+        prob_maligne = 1 / (1 + np.exp(-scores))
+        prob_benigne = 1 - prob_maligne
+        # Retourner au format [[prob_benigne, prob_maligne], ...]
+        return np.column_stack([prob_benigne, prob_maligne])
+
 @st.cache_resource
 def load_svm():
-    model = joblib.load("models/svm.pkl")
-    scaler = joblib.load("models/scaler.pkl")
+    try:
+        svm_data = joblib.load("models/svm.pkl")
+        scaler = joblib.load("models/scaler.pkl")
+    except Exception as e:
+        raise FileNotFoundError(f"Impossible de charger les fichiers de modèle : {e}")
+    
+    # Vérifier si c'est un modèle personnalisé (avec w et b)
+    if isinstance(svm_data, dict):
+        if 'w' in svm_data and 'b' in svm_data:
+            # C'est un modèle SVM personnalisé
+            w = svm_data['w']
+            b = svm_data['b']
+            model = CustomSVMModel(w, b)
+        else:
+            # Essayer d'extraire un modèle scikit-learn standard
+            model = None
+            for key in ["svm", "model", "classifier", "svm_model", "estimator"]:
+                if key in svm_data:
+                    candidate = svm_data[key]
+                    if hasattr(candidate, 'predict') and not isinstance(candidate, dict):
+                        model = candidate
+                        break
+            
+            # Si aucun modèle trouvé, essayer de prendre le premier objet qui a predict
+            if model is None:
+                for key, value in svm_data.items():
+                    if hasattr(value, 'predict') and not isinstance(value, dict):
+                        model = value
+                        break
+            
+            if model is None:
+                raise ValueError(f"Impossible d'extraire un modèle SVM valide. Clés disponibles : {list(svm_data.keys())}")
+    else:
+        # Modèle direct (pas un dict)
+        if hasattr(svm_data, 'predict'):
+            model = svm_data
+        else:
+            raise ValueError(f"Le modèle chargé n'a pas de méthode 'predict'. Type : {type(svm_data)}")
+    
     return model, scaler
 
 svm_model, scaler = load_svm()
+
+# Vérification que le modèle est valide
+if svm_model is None:
+    st.error("❌ Erreur : Impossible de charger le modèle SVM.")
+    st.stop()
+
+if isinstance(svm_model, dict):
+    st.error(f"❌ Erreur : Le modèle SVM est un dictionnaire. Clés disponibles : {list(svm_model.keys())}")
+    st.info("💡 Le modèle doit être extrait du dictionnaire. Vérifiez la structure du fichier svm.pkl")
+    st.stop()
+
+if not hasattr(svm_model, 'predict'):
+    st.error(f"❌ Erreur : L'objet chargé n'a pas de méthode 'predict'. Type : {type(svm_model)}")
+    st.stop()
 
 # =========================
 # Formulaire des inputs
@@ -136,7 +210,78 @@ if submit:
     X_scaled = scaler.transform(X)
 
     # Probabilité + seuil
-    y_prob = svm_model.predict(X_scaled)[0][1]
+    # Vérifier d'abord que svm_model est bien un modèle et non un dict
+    if isinstance(svm_model, dict):
+        st.error("❌ Erreur : Le modèle SVM n'a pas été correctement chargé (c'est un dictionnaire).")
+        st.error(f"Clés disponibles dans le dictionnaire : {list(svm_model.keys())}")
+        st.stop()
+    
+    # Utiliser predict_proba si disponible, sinon utiliser predict
+    try:
+        if hasattr(svm_model, 'predict_proba'):
+            # predict_proba retourne un tableau 2D : [[prob_classe_0, prob_classe_1]]
+            proba_result = svm_model.predict_proba(X_scaled)
+            if len(proba_result.shape) == 2 and proba_result.shape[1] >= 2:
+                y_prob = float(proba_result[0][1])  # Probabilité de la classe 1 (maligne)
+            elif len(proba_result.shape) == 2 and proba_result.shape[1] == 1:
+                # Une seule classe, utiliser la probabilité disponible
+                y_prob = float(proba_result[0][0])
+            else:
+                # Format inattendu
+                y_prob = 0.5
+                st.warning(f"⚠️ Format de probabilité inattendu. Shape: {proba_result.shape}")
+        else:
+            # Si predict_proba n'est pas disponible, utiliser predict
+            pred_result = svm_model.predict(X_scaled)
+            
+            # Vérifier la structure du résultat
+            if isinstance(pred_result, np.ndarray):
+                if len(pred_result.shape) > 1 and pred_result.shape[1] > 1:
+                    # Tableau 2D avec plusieurs colonnes (probabilités)
+                    y_prob = float(pred_result[0][1])
+                elif len(pred_result.shape) == 1:
+                    # Prédiction binaire simple (1D array)
+                    y_pred_binary = int(pred_result[0])
+                    y_prob = 0.8 if y_pred_binary == 1 else 0.2
+                else:
+                    # Format inattendu
+                    y_pred_binary = int(pred_result.flatten()[0])
+                    y_prob = 0.8 if y_pred_binary == 1 else 0.2
+            elif isinstance(pred_result, (list, tuple)):
+                # Liste ou tuple
+                if len(pred_result) > 1 and isinstance(pred_result[0], (list, np.ndarray)):
+                    y_prob = float(pred_result[0][1])
+                else:
+                    y_pred_binary = int(pred_result[0])
+                    y_prob = 0.8 if y_pred_binary == 1 else 0.2
+            else:
+                # Format inattendu, estimer depuis la prédiction
+                y_pred_binary = int(pred_result) if not isinstance(pred_result, (list, np.ndarray)) else int(pred_result[0])
+                y_prob = 0.8 if y_pred_binary == 1 else 0.2
+    except (IndexError, TypeError, AttributeError) as e:
+        # Fallback : prédiction binaire simple
+        try:
+            pred_result = svm_model.predict(X_scaled)
+            if isinstance(pred_result, np.ndarray):
+                y_pred_binary = int(pred_result.flatten()[0])
+            elif isinstance(pred_result, (list, tuple)):
+                y_pred_binary = int(pred_result[0])
+            else:
+                y_pred_binary = int(pred_result)
+            y_prob = 0.8 if y_pred_binary == 1 else 0.2
+            st.warning(f"⚠️ Utilisation d'une probabilité estimée. Erreur originale: {str(e)}")
+        except Exception as e2:
+            st.error(f"❌ Erreur lors de la prédiction SVM : {str(e2)}")
+            st.error(f"Type du modèle : {type(svm_model)}")
+            st.error(f"Type du résultat predict : {type(pred_result) if 'pred_result' in locals() else 'N/A'}")
+            st.stop()
+    except Exception as e:
+        st.error(f"❌ Erreur inattendue lors de la prédiction SVM : {str(e)}")
+        st.error(f"Type du modèle : {type(svm_model)}")
+        import traceback
+        st.code(traceback.format_exc())
+        st.stop()
+    
     y_pred = 1 if y_prob >= 0.5 else 0
 
     st.markdown("---")

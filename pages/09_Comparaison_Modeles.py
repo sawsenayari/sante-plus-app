@@ -17,6 +17,25 @@ try:
 except ImportError:
     pass
 
+# Classe wrapper pour le modèle SVM personnalisé
+class CustomSVMModel:
+    """Wrapper pour un modèle SVM personnalisé avec poids w et biais b"""
+    def __init__(self, w, b):
+        self.w = np.array(w)
+        self.b = float(b)
+    
+    def predict(self, X):
+        """Prédiction binaire : 0 ou 1"""
+        scores = np.dot(X, self.w) + self.b
+        return (scores >= 0).astype(int)
+    
+    def predict_proba(self, X):
+        """Probabilités : utilise une sigmoïde pour convertir les scores en probabilités"""
+        scores = np.dot(X, self.w) + self.b
+        prob_maligne = 1 / (1 + np.exp(-scores))
+        prob_benigne = 1 - prob_maligne
+        return np.column_stack([prob_benigne, prob_maligne])
+
 # Configuration de la page
 st.set_page_config(
     page_title="Comparaison des Modèles - Santé Plus",
@@ -69,26 +88,71 @@ st.markdown("""
 def load_all_models():
     """Charge tous les modèles et le scaler"""
     try:
+        # S'assurer que Keras/TensorFlow sont importés avant de charger les modèles
+        try:
+            import tensorflow as tf
+            tf.get_logger().setLevel('ERROR')
+            import keras
+        except ImportError:
+            pass
+        
         scaler = joblib.load("models/scaler.pkl")
         
         # Linear Regression
         lin_reg = joblib.load("models/linear_regression.pkl")
         
-        # GRU-SVM
-        gru_svm_data = joblib.load("models/gru_svm.pkl")
-        if isinstance(gru_svm_data, dict):
-            gru_svm_model = gru_svm_data.get("svm", gru_svm_data.get("model", None))
-        else:
-            gru_svm_model = gru_svm_data
+        # GRU-SVM (nécessite Keras)
+        try:
+            gru_svm_data = joblib.load("models/gru_svm.pkl")
+            if isinstance(gru_svm_data, dict):
+                gru_svm_model = gru_svm_data.get("svm", gru_svm_data.get("model", None))
+            else:
+                gru_svm_model = gru_svm_data
+        except Exception as e:
+            st.warning(f"Erreur lors du chargement de GRU-SVM : {e}")
+            gru_svm_model = None
         
-        # MLP
-        mlp_model = joblib.load("models/MLP.pkl")
+        # MLP (nécessite Keras)
+        try:
+            mlp_model = joblib.load("models/MLP.pkl")
+        except Exception as e:
+            st.warning(f"Erreur lors du chargement de MLP : {e}")
+            mlp_model = None
         
         # Softmax
-        softmax_model = joblib.load("models/softmax.pkl")
+        try:
+            softmax_model = joblib.load("models/softmax.pkl")
+        except Exception as e:
+            st.warning(f"Erreur lors du chargement de Softmax : {e}")
+            softmax_model = None
         
         # k-NN
         knn_model = joblib.load("models/knn.pkl")
+        
+        # SVM - peut être un modèle personnalisé avec w et b
+        try:
+            svm_data = joblib.load("models/svm.pkl")
+            if isinstance(svm_data, dict):
+                if 'w' in svm_data and 'b' in svm_data:
+                    # Modèle SVM personnalisé
+                    svm_model = CustomSVMModel(svm_data['w'], svm_data['b'])
+                else:
+                    # Essayer d'extraire un modèle scikit-learn
+                    svm_model = None
+                    for key in ["svm", "model", "classifier", "svm_model", "estimator"]:
+                        if key in svm_data and hasattr(svm_data[key], 'predict'):
+                            svm_model = svm_data[key]
+                            break
+                    if svm_model is None:
+                        for key, value in svm_data.items():
+                            if hasattr(value, 'predict') and not isinstance(value, dict):
+                                svm_model = value
+                                break
+            else:
+                svm_model = svm_data if hasattr(svm_data, 'predict') else None
+        except Exception as e:
+            st.warning(f"Erreur lors du chargement de SVM : {e}")
+            svm_model = None
         
         return {
             "scaler": scaler,
@@ -96,14 +160,28 @@ def load_all_models():
             "GRU-SVM": gru_svm_model,
             "MLP": mlp_model,
             "Softmax Regression": softmax_model,
-            "k-NN": knn_model
+            "k-NN": knn_model,
+            "SVM": svm_model
         }
     except Exception as e:
-        st.error(f"Erreur lors du chargement des modèles : {e}")
-        st.stop()
+        # Ne pas arrêter complètement, retourner ce qui a pu être chargé
+        st.warning(f"⚠️ Certains modèles n'ont pas pu être chargés : {e}")
+        # Retourner au moins le scaler et les modèles de base
+        return {
+            "scaler": scaler if 'scaler' in locals() else None,
+            "Linear Regression": lin_reg if 'lin_reg' in locals() else None,
+            "GRU-SVM": gru_svm_model if 'gru_svm_model' in locals() else None,
+            "MLP": mlp_model if 'mlp_model' in locals() else None,
+            "Softmax Regression": softmax_model if 'softmax_model' in locals() else None,
+            "k-NN": knn_model if 'knn_model' in locals() else None,
+            "SVM": svm_model if 'svm_model' in locals() else None
+        }
 
 models = load_all_models()
-scaler = models["scaler"]
+scaler = models.get("scaler")
+if scaler is None:
+    st.error("❌ Impossible de charger le scaler. L'application ne peut pas fonctionner.")
+    st.stop()
 
 # =========================
 # Formulaire d'entrée
@@ -204,55 +282,94 @@ if submitted:
 
         # GRU-SVM
         try:
-            EXPECTED_FEATURES = 32
-            n_missing = EXPECTED_FEATURES - X_scaled_22.shape[1]
-            X_final = np.hstack([X_scaled_22, np.zeros((1, n_missing))])
-            pred = models["GRU-SVM"].predict(X_final)[0]
-            # Pour GRU-SVM, on n'a pas de probabilité directe, on utilise la prédiction
-            prob = 0.8 if pred == 1 else 0.2  # Estimation
-            results["GRU-SVM"] = {
-                "probabilite": float(prob),  # Convertir en float Python
-                "prediction": pred,
-                "type": "binary"
-            }
+            if models["GRU-SVM"] is None:
+                results["GRU-SVM"] = {"error": "Modèle non chargé (Keras requis)"}
+            else:
+                EXPECTED_FEATURES = 32
+                n_missing = EXPECTED_FEATURES - X_scaled_22.shape[1]
+                X_final = np.hstack([X_scaled_22, np.zeros((1, n_missing))])
+                pred = models["GRU-SVM"].predict(X_final)[0]
+                # Pour GRU-SVM, on n'a pas de probabilité directe, on utilise la prédiction
+                prob = 0.8 if pred == 1 else 0.2  # Estimation
+                results["GRU-SVM"] = {
+                    "probabilite": float(prob),  # Convertir en float Python
+                    "prediction": pred,
+                    "type": "binary"
+                }
         except Exception as e:
             results["GRU-SVM"] = {"error": str(e)}
 
         # MLP
         try:
-            prob = models["MLP"].predict(X_scaled_22)[0][0]
-            pred = 1 if prob >= 0.5 else 0
-            results["MLP"] = {
-                "probabilite": float(prob),  # Convertir en float Python
-                "prediction": pred,
-                "type": "probability"
-            }
+            if models["MLP"] is None:
+                results["MLP"] = {"error": "Modèle non chargé (Keras requis)"}
+            else:
+                prob = models["MLP"].predict(X_scaled_22)[0][0]
+                pred = 1 if prob >= 0.5 else 0
+                results["MLP"] = {
+                    "probabilite": float(prob),  # Convertir en float Python
+                    "prediction": pred,
+                    "type": "probability"
+                }
         except Exception as e:
             results["MLP"] = {"error": str(e)}
 
         # Softmax Regression
         try:
-            prob = models["Softmax Regression"].predict(X_scaled_22)[0][1]
-            pred = 1 if prob >= 0.5 else 0
-            results["Softmax Regression"] = {
-                "probabilite": float(prob),  # Convertir en float Python
-                "prediction": pred,
-                "type": "probability"
-            }
+            if models["Softmax Regression"] is None:
+                results["Softmax Regression"] = {"error": "Modèle non chargé"}
+            else:
+                prob = models["Softmax Regression"].predict(X_scaled_22)[0][1]
+                pred = 1 if prob >= 0.5 else 0
+                results["Softmax Regression"] = {
+                    "probabilite": float(prob),  # Convertir en float Python
+                    "prediction": pred,
+                    "type": "probability"
+                }
         except Exception as e:
             results["Softmax Regression"] = {"error": str(e)}
 
         # k-NN
         try:
-            prob = models["k-NN"].predict_proba(X_scaled_22)[0][1]
-            pred = 1 if prob >= 0.5 else 0
-            results["k-NN"] = {
-                "probabilite": float(prob),  # Convertir en float Python
-                "prediction": pred,
-                "type": "probability"
-            }
+            if models["k-NN"] is None:
+                results["k-NN"] = {"error": "Modèle non chargé"}
+            else:
+                prob = models["k-NN"].predict_proba(X_scaled_22)[0][1]
+                pred = 1 if prob >= 0.5 else 0
+                results["k-NN"] = {
+                    "probabilite": float(prob),  # Convertir en float Python
+                    "prediction": pred,
+                    "type": "probability"
+                }
         except Exception as e:
             results["k-NN"] = {"error": str(e)}
+
+        # SVM
+        try:
+            if models["SVM"] is None:
+                results["SVM"] = {"error": "Modèle non chargé"}
+            else:
+                svm_model = models["SVM"]
+                # Utiliser predict_proba si disponible
+                if hasattr(svm_model, 'predict_proba'):
+                    prob = svm_model.predict_proba(X_scaled_22)[0][1]
+                else:
+                    # Utiliser predict et estimer une probabilité
+                    pred_result = svm_model.predict(X_scaled_22)
+                    if isinstance(pred_result, np.ndarray):
+                        y_pred_binary = int(pred_result[0])
+                    else:
+                        y_pred_binary = int(pred_result[0]) if hasattr(pred_result, '__getitem__') else int(pred_result)
+                    prob = 0.8 if y_pred_binary == 1 else 0.2
+                
+                pred = 1 if prob >= 0.5 else 0
+                results["SVM"] = {
+                    "probabilite": float(prob),  # Convertir en float Python
+                    "prediction": pred,
+                    "type": "probability"
+                }
+        except Exception as e:
+            results["SVM"] = {"error": str(e)}
 
     st.markdown("---")
     st.markdown("### 📊 Résultats de la comparaison")
@@ -289,14 +406,24 @@ if submitted:
         benign_count = sum(1 for r in results.values() if "error" not in r and r["prediction"] == 0)
         malign_count = sum(1 for r in results.values() if "error" not in r and r["prediction"] == 1)
         total_models = len([r for r in results.values() if "error" not in r])
-        avg_prob = float(np.mean([r["probabilite"] for r in results.values() if "error" not in r]))  # Convertir en float Python
+        
+        if total_models > 0:
+            avg_prob = float(np.mean([r["probabilite"] for r in results.values() if "error" not in r]))  # Convertir en float Python
+        else:
+            avg_prob = 0.0
         
         with col_stat1:
             st.metric("Modèles testés", total_models)
         with col_stat2:
-            st.metric("Prédictions Bénignes", benign_count, f"{benign_count/total_models*100:.1f}%")
+            if total_models > 0:
+                st.metric("Prédictions Bénignes", benign_count, f"{benign_count/total_models*100:.1f}%")
+            else:
+                st.metric("Prédictions Bénignes", benign_count)
         with col_stat3:
-            st.metric("Prédictions Malignes", malign_count, f"{malign_count/total_models*100:.1f}%")
+            if total_models > 0:
+                st.metric("Prédictions Malignes", malign_count, f"{malign_count/total_models*100:.1f}%")
+            else:
+                st.metric("Prédictions Malignes", malign_count)
         with col_stat4:
             st.metric("Probabilité moyenne", f"{avg_prob:.4f}")
 
@@ -325,20 +452,21 @@ if submitted:
         st.pyplot(fig)
 
         # Analyse de consensus
-        st.markdown("#### 🤝 Consensus des modèles")
-        
-        if benign_count == total_models:
-            st.success(f"✅ **Consensus total** : Tous les {total_models} modèles prédisent une tumeur **BÉNIGNE**")
-        elif malign_count == total_models:
-            st.error(f"⚠️ **Consensus total** : Tous les {total_models} modèles prédisent une tumeur **MALIGNE**")
-        else:
-            consensus_rate = max(benign_count, malign_count) / total_models * 100
-            st.warning(f"⚠️ **Consensus partiel** : {max(benign_count, malign_count)}/{total_models} modèles ({consensus_rate:.1f}%) sont d'accord")
+        if total_models > 0:
+            st.markdown("#### 🤝 Consensus des modèles")
             
-            if benign_count > malign_count:
-                st.info(f"Majorité en faveur d'une tumeur **BÉNIGNE** ({benign_count}/{total_models} modèles)")
+            if benign_count == total_models:
+                st.success(f"✅ **Consensus total** : Tous les {total_models} modèles prédisent une tumeur **BÉNIGNE**")
+            elif malign_count == total_models:
+                st.error(f"⚠️ **Consensus total** : Tous les {total_models} modèles prédisent une tumeur **MALIGNE**")
             else:
-                st.info(f"Majorité en faveur d'une tumeur **MALIGNE** ({malign_count}/{total_models} modèles)")
+                consensus_rate = max(benign_count, malign_count) / total_models * 100
+                st.warning(f"⚠️ **Consensus partiel** : {max(benign_count, malign_count)}/{total_models} modèles ({consensus_rate:.1f}%) sont d'accord")
+                
+                if benign_count > malign_count:
+                    st.info(f"Majorité en faveur d'une tumeur **BÉNIGNE** ({benign_count}/{total_models} modèles)")
+                else:
+                    st.info(f"Majorité en faveur d'une tumeur **MALIGNE** ({malign_count}/{total_models} modèles)")
 
         # Détails par modèle
         st.markdown("#### 🔍 Détails par modèle")

@@ -1,6 +1,18 @@
 import streamlit as st
 import numpy as np
 import joblib
+import os
+
+# Désactiver les warnings TensorFlow
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+# Importer Keras/TensorFlow avant de charger les modèles (si nécessaire)
+try:
+    import tensorflow as tf
+    tf.get_logger().setLevel('ERROR')
+    import keras
+except ImportError:
+    pass
 
 # Configuration de la page
 st.set_page_config(
