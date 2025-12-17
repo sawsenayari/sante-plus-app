@@ -18,9 +18,9 @@ Render est une excellente alternative à Streamlit Cloud qui gère mieux TensorF
 3. **Configuration**
    - **Name** : `sante-plus-app` (ou votre choix)
    - **Environment** : `Python 3`
-   - **Build Command** : `pip install -r requirements.txt`
+   - **Build Command** : `pip install --upgrade pip setuptools wheel && pip install -r requirements.txt`
    - **Start Command** : `streamlit run app.py --server.port $PORT --server.address 0.0.0.0`
-   - **Python Version** : `3.11`
+   - **Python Version** : `3.11` (IMPORTANT : Changez de 3.13 à 3.11 dans les settings)
 
 4. **Variables d'environnement** (optionnel)
    - `TF_CPP_MIN_LOG_LEVEL` = `3` (pour réduire les warnings TensorFlow)
