@@ -1,13 +1,9 @@
 services:
   - type: web
     name: sante-plus-app
-    env: python
-    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
-    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
-    pythonVersion: 3.11.14
+    env: docker
+    dockerfilePath: ./Dockerfile
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.14
       - key: TF_CPP_MIN_LOG_LEVEL
         value: 3
 
