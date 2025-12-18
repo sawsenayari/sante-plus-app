@@ -59,7 +59,8 @@ class CustomSVMModel:
     """Wrapper pour un modèle SVM personnalisé avec poids w et biais b"""
     def __init__(self, w, b):
         self.w = np.array(w)
-        self.b = float(b)
+        # b peut être un array (ex: shape (1,)) → extraire un scalaire proprement (évite DeprecationWarning NumPy)
+        self.b = float(np.asarray(b).reshape(-1)[0])
     
     def predict(self, X):
         """Prédiction binaire : 0 ou 1"""

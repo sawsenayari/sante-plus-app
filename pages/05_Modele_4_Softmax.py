@@ -75,51 +75,8 @@ def load_softmax():
         # Configurer la compatibilité Keras
         if not setup_keras_compatibility(tf):
             raise RuntimeError("Impossible de configurer la compatibilité Keras")
-        
-        import types
-        
-        # Mapper keras vers tf.keras
-        if 'keras' not in sys.modules:
-            sys.modules['keras'] = tf.keras
-        
-        # Créer un module factice pour keras.src qui redirige vers tf.keras
-        if 'keras.src' not in sys.modules:
-            keras_src_module = types.ModuleType('keras.src')
-            sys.modules['keras.src'] = keras_src_module
-        
-        # Créer keras.src.models et mapper Sequential
-        if 'keras.src.models' not in sys.modules:
-            keras_models_module = types.ModuleType('keras.src.models')
-            keras_models_module.Sequential = tf.keras.Sequential
-            keras_models_module.Model = tf.keras.Model
-            sys.modules['keras.src.models'] = keras_models_module
-        
-        # Créer keras.src.models.sequential - doit être un module, pas une classe
-        if 'keras.src.models.sequential' not in sys.modules:
-            sequential_module = types.ModuleType('keras.src.models.sequential')
-            # La classe Sequential doit être accessible depuis le module
-            sequential_module.Sequential = tf.keras.Sequential
-            sys.modules['keras.src.models.sequential'] = sequential_module
-        
-        # Mapper les autres modules directement
-        if 'keras.src.layers' not in sys.modules:
-            sys.modules['keras.src.layers'] = tf.keras.layers
-        if 'keras.src.optimizers' not in sys.modules:
-            sys.modules['keras.src.optimizers'] = tf.keras.optimizers
-        if 'keras.src.losses' not in sys.modules:
-            sys.modules['keras.src.losses'] = tf.keras.losses
-        if 'keras.src.metrics' not in sys.modules:
-            sys.modules['keras.src.metrics'] = tf.keras.metrics
-        if 'keras.src.saving' not in sys.modules:
-            sys.modules['keras.src.saving'] = tf.keras.saving
-        
-        # Créer un module factice pour keras.src.saving.keras_saveable
-        if 'keras.src.saving.keras_saveable' not in sys.modules:
-            keras_saveable_module = types.ModuleType('keras.src.saving.keras_saveable')
-            keras_saveable_module.KerasSaveable = object
-            sys.modules['keras.src.saving.keras_saveable'] = keras_saveable_module
-        
-        # Charger le modèle
+
+        # Charger le modèle (compat Keras déjà configurée)
         model = joblib.load("models/softmax.pkl")
         scaler = joblib.load("models/scaler.pkl")
         return model, scaler
